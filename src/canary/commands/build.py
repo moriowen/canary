@@ -71,7 +71,8 @@ def _work(job):
         patch = _s(row["generated_patch"])
         log = _s(row["eval_logs"])
         outcome = _swe_outcome(patch, log, target)
-        fails = len(re.findall(r"^FAILED ", log, re.M))
+        failed_names = re.findall(r"^FAILED (\S+)", log, re.M)
+        fails = len(failed_names)
         passes = len(re.findall(r"^PASSED ", log, re.M))
         repo = row["instance_id"].rsplit("-", 1)[0]
     else:
@@ -81,6 +82,7 @@ def _work(job):
         patch = _s(row.get("model_patch"))
         outcome = "resolved" if target else ("no_patch" if not patch.strip() else "tests_fail")
         fails = passes = -1
+        failed_names = []
         repo = row["repo"]
     pf, pl = _patch_stats(patch)
     rows, full = prefix_rows(turns, issue, full=True)
@@ -89,6 +91,7 @@ def _work(job):
         "repo": repo, "model": model, "target": target, "exit_status": str(row["exit_status"]),
         "outcome": outcome, "n_turns": len(turns), "issue": issue[:8000],
         "patch_files": pf, "patch_lines": pl, "eval_failed": fails, "eval_passed": passes,
+        "patch": patch[:4000], "failed_tests": "\n".join(failed_names[:15]),
         "ctx_chars": sum(t["out_chars"] + t["thought_chars"] + len(t["cmd"]) for t in turns),
     }
     for t in turns:
