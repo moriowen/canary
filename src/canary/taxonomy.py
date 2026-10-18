@@ -223,8 +223,11 @@ def propose(args):
     tok = llm.get_tokenizer()
     prompt = tok.apply_chat_template([{"role": "system", "content": PROPOSER}, {"role": "user", "content": body}],
                                      tokenize=False, add_generation_prompt=True)
-    o = llm.generate([prompt], SamplingParams(temperature=0.0, max_tokens=1500))[0].outputs[0].text
+    o = llm.generate([prompt], SamplingParams(temperature=0.0, max_tokens=4000))[0].outputs[0].text
+    (out / "categories_raw.txt").write_text(o)
     cats = _json(o).get("categories", [])
+    if not cats:
+        raise SystemExit(f"no categories parsed; raw reply in {out / 'categories_raw.txt'}")
     (out / "categories.json").write_text(json.dumps(cats, indent=2))
     for i, c in enumerate(cats, 1):
         print(f"{i}. {c['name']}: {c['definition']}")
