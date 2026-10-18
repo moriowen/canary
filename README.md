@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/canary.svg" width="168" alt="Canary logo: a small yellow canary wearing a miner's helmet">
+  <img src="docs/canary.png" width="200" alt="Canary logo: a round yellow canary in a miner's helmet with a glowing headlamp, waving from a lump of coal">
 </p>
 
 <h1 align="center">Canary</h1>
