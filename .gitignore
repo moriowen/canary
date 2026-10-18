@@ -7,4 +7,8 @@ __pycache__/
 .pytest_cache/
 .DS_Store
 logs/
-results/raw/
+results/*/preds/
+results/*/text_model/
+results/*/*.pt
+results/*/gbm.txt
+results/*/taxonomy/*.parquet

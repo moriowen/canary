@@ -2,7 +2,7 @@
 #SBATCH -J canary-fetch
 #SBATCH -p ice-cpu
 #SBATCH -N1 -c 4
-#SBATCH --mem=16G
+#SBATCH --mem=64G
 #SBATCH -t 2:00:00
 #SBATCH -o logs/%x-%j.out
 # Download model weights once so GPU jobs don't spend their time on it.
