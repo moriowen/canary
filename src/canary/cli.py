@@ -15,6 +15,7 @@ COMMANDS = {
     "text": ("canary.models.text", "fine-tune ModernBERT on transcript prefixes"),
     "ensemble": ("canary.models.ensemble", "average the monitors' log-odds"),
     "watch": ("canary.commands.watch", "replay a held-out run and show the monitor's call at every turn"),
+    "catch": ("canary.commands.catch", "which failure modes the monitor kills early"),
     "report": ("canary.commands.report", "figures and markdown tables from results/"),
     "taxonomy": ("canary.taxonomy", "LLM-diagnose quiet failures, cluster and name failure modes"),
     "evaluate": ("canary.commands.evaluate", "score predictions and rule baselines, simulate abort policies"),
