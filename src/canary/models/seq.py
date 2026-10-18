@@ -4,8 +4,10 @@ GRU over per-turn vectors: one network, a prediction after every turn.
     canary seq swe
     canary seq swe --eval-on oh
 
-The issue features initialise the hidden state, so position 0 (no turns seen)
-is the task-only prior and every later position updates it.
+The static input (backbone size) initialises the hidden state. Issue statistics
+are left out on purpose: they are identical across a task's ~22 attempts, so the
+network uses them to memorise per-task solve rates (train loss collapses, val
+stalls). Position 0 is the prior before any turn; every later position updates it.
 """
 
 import json
@@ -35,7 +37,7 @@ def load(scaffold, use_model):
     df = runs[["run_id", "instance_id", "target", "model", "n_turns"]].merge(
         splits[["instance_id", "split"]], on="instance_id").merge(steps, on="run_id").merge(
         k0.drop(columns="k"), on="run_id", how="left")
-    S = np.log1p(df[STATIC].fillna(0).to_numpy(np.float32))
+    S = np.ones((len(df), 1), np.float32)
     if use_model:
         S = np.concatenate([S, np.stack([df.model.str.endswith(m).to_numpy(np.float32)
                                          for m in MODELS], 1)], 1)
@@ -50,8 +52,8 @@ class Net(nn.Module):
         self.layers, self.h = layers, h
         self.init = nn.Sequential(nn.Linear(d_static, h), nn.Tanh(), nn.Linear(h, layers * h), nn.Tanh())
         self.inp = nn.Sequential(nn.Linear(d_step, h), nn.GELU())
-        self.gru = nn.GRU(h, h, layers, batch_first=True, dropout=0.2)
-        self.head = nn.Sequential(nn.Linear(h + d_static, h), nn.GELU(), nn.Dropout(0.1), nn.Linear(h, 1))
+        self.gru = nn.GRU(h, h, layers, batch_first=True, dropout=0.3)
+        self.head = nn.Sequential(nn.Linear(h + d_static, h), nn.GELU(), nn.Dropout(0.3), nn.Linear(h, 1))
 
     def forward(self, x, s):
         B = x.shape[0]
@@ -112,15 +114,14 @@ def run(args):
     dev = "cuda" if torch.cuda.is_available() else "cpu"
     use_model = not args.eval_on
     df, X, S = load(args.scaffold, use_model)
-    mu, sd = S[df.split == "train"].mean(0), S[df.split == "train"].std(0) + 1e-6
-    S = (S - mu) / sd
+    mu, sd = np.zeros(S.shape[1], np.float32), np.ones(S.shape[1], np.float32)
     y = df.target.to_numpy(np.float32)
     n = df.n_turns.to_numpy()
     tr = np.where(df.split == "train")[0]
     va = np.where(df.split == "val")[0]
 
     net = Net(len(STEP_COLS), S.shape[1]).to(dev)
-    opt = torch.optim.AdamW(net.parameters(), lr=2e-3, weight_decay=1e-2)
+    opt = torch.optim.AdamW(net.parameters(), lr=2e-3, weight_decay=5e-2)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, 2e-3, total_steps=args.epochs * math.ceil(len(tr) / 256))
     best, best_state, log = -1, None, []
     for ep in range(args.epochs):

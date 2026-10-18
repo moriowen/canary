@@ -3,8 +3,9 @@ Fine-tune a long-context encoder on the raw transcript prefix.
 
     canary text swe
 
-Each example is (run, k): the issue head plus the most recent turns that fit,
-rendered as compact text. Every epoch samples fresh checkpoints per run so one
+Each example is (run, k): the backbone tag plus the most recent turns that fit,
+rendered as compact text. The issue text is left out: all of a task's ~22 attempts
+share it, so including it lets the encoder memorise which issues are hopeless. Every epoch samples fresh checkpoints per run so one
 model serves every k.
 """
 
@@ -24,7 +25,6 @@ from canary.data import RESULTS, processed
 MODEL = "answerdotai/ModernBERT-base"
 K_TEXT = [0, 1, 2, 3, 5, 8, 10, 15, 20, 30]
 MAX_LEN = 2048
-ISSUE_CHARS = 1500
 TURN_CHARS = {"cmd": 200, "thought": 240, "output": 360}
 
 
@@ -56,7 +56,7 @@ def load(scaffold):
     t["err_any"] = t.filter(like="err_").any(axis=1)
     t = t.sort_values(["run_id", "t"])
     txt = {rid: [render_turn(r) for r in g.itertuples()] for rid, g in t.groupby("run_id", sort=False)}
-    runs["head"] = [f"[{m}]\nISSUE: {iss[:ISSUE_CHARS]}\n\n" for m, iss in zip(runs.model, runs.issue)]
+    runs["head"] = [f"[{m}]\n" for m in runs.model]
     runs["turns"] = runs.run_id.map(lambda r: txt.get(r, []))
     return runs
 
@@ -86,7 +86,7 @@ def run(args):
     runs = load(args.scaffold)
     tok = AutoTokenizer.from_pretrained(args.model)
     net = AutoModelForSequenceClassification.from_pretrained(args.model, num_labels=1).to(dev)
-    budget = int((MAX_LEN - 20) * 3.2) - ISSUE_CHARS   # ~3.2 chars per token on this text
+    budget = int((MAX_LEN - 20) * 3.2)   # ~3.2 chars per token on this text
 
     def enc(batch):
         texts = [render(runs.at[i, "head"], runs.at[i, "turns"], k, budget) for i, k in batch]
