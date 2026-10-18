@@ -71,6 +71,23 @@ def fit_gbm(tr, va, cols, rounds=4000):
                      callbacks=[lgb.early_stopping(150, verbose=False), lgb.log_evaluation(500)])
 
 
+def fit_ranker(tr, va, cols, rounds=3000):
+    """Rank attempts against each other within (task, k).
+
+    Trained only on mixed-outcome tasks, grouped by issue and checkpoint, so the
+    only thing it can learn is which attempt at the same issue is going better.
+    """
+    def ds(X):
+        X = X[X.groupby("instance_id").target.transform("nunique") == 2]
+        X = X.sort_values(["instance_id", "k"])
+        grp = X.groupby(["instance_id", "k"], sort=False).size().to_numpy()
+        return lgb.Dataset(X[cols], X.target.astype(int), group=grp)
+    params = {**GBM_PARAMS, "objective": "rank_xendcg", "metric": "map", "eval_at": [3],
+              "min_data_in_leaf": 300}
+    return lgb.train(params, ds(tr), rounds, valid_sets=[ds(va)],
+                     callbacks=[lgb.early_stopping(150, verbose=False), lgb.log_evaluation(500)])
+
+
 def fit_lr(tr, cols):
     m = make_pipeline(SimpleImputer(strategy="median", add_indicator=True), StandardScaler(),
                       LogisticRegression(C=0.3, max_iter=3000))
@@ -129,6 +146,11 @@ def run(args):
         print(name, info[name], flush=True)
 
     cols = feature_cols(X, "run", portable)
+    rk = fit_ranker(tr, va, cols)
+    _save(out, "gbm_rank", ev, 1 / (1 + np.exp(-rk.predict(ev[cols], num_iteration=rk.best_iteration))))
+    info["gbm_rank"] = {"iters": rk.best_iteration}
+    print("gbm_rank", info["gbm_rank"], flush=True)
+
     lr = fit_lr(tr.sample(min(len(tr), 400_000), random_state=0), cols)
     _save(out, "logreg", ev, lr.predict_proba(ev[cols])[:, 1])
     coef = lr[-1].coef_[0][: len(cols)]
