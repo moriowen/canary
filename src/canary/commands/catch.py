@@ -10,14 +10,10 @@ cluster's behaviour from end-of-run features. Writes results/<tag>/catch.csv.
 
 import json
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import pandas as pd
 
 from canary.commands.evaluate import POLICY_SCHEDULE
-from canary.data import REPORTS, RESULTS, processed
+from canary.data import RESULTS, processed
 from canary.policy import threshold_kills
 
 PROFILE = {"n_turns": "turns", "frac_err": "error rate", "n_test": "test runs",
@@ -66,21 +62,3 @@ def run(args):
     print(tab.round(3).to_string())
     print()
     print(stage.round(3).to_string())
-
-    (REPORTS / "figures").mkdir(parents=True, exist_ok=True)
-    t = tab.drop("all quiet failures").sort_values("share")
-    fig, ax = plt.subplots(figsize=(8, 0.42 * len(t) + 1.4))
-    ax.barh(t.index, t.share * 100, color="#cbd5e1", label="share of quiet failures (%)")
-    ax.barh(t.index, t.share * t.caught * 100, color="#2563eb", label="caught by the monitor (%)")
-    for i, (sh, c) in enumerate(zip(t.share, t.caught)):
-        ax.text(sh * 100 + 0.3, i, f"{c:.0%} caught", va="center", fontsize=8)
-    ax.set_xlabel("% of test-split quiet failures")
-    ax.set_title(f"Failure modes and how many the monitor kills early (≤{args.budget:.0%} successes lost)", fontsize=10)
-    ax.spines[["top", "right"]].set_visible(False)
-    ax.legend(fontsize=8, frameon=False, loc="lower right")
-    fig.tight_layout()
-    fig.savefig(REPORTS / "figures" / f"{args.tag}_taxonomy_catch.png", dpi=160)
-    for f in ("catch.csv", "catch_stage.csv"):
-        (REPORTS / args.tag).mkdir(parents=True, exist_ok=True)
-        (REPORTS / args.tag / f).write_text((out / f).read_text())
-    (REPORTS / args.tag / "clusters.json").write_text((tx / "clusters.json").read_text())

@@ -99,6 +99,25 @@ def fig_importance(tag, out, n=15):
     plt.close(fig)
 
 
+def fig_catch(tag, out):
+    f = RESULTS / tag / "catch.csv"
+    if not f.exists():
+        return
+    t = pd.read_csv(f, index_col=0).drop("all quiet failures").sort_values("share")
+    fig, ax = plt.subplots(figsize=(8, 0.42 * len(t) + 1.4))
+    ax.barh(t.index, t.share * 100, color="#cbd5e1", label="share of quiet failures")
+    ax.barh(t.index, t.share * t.caught * 100, color=COLORS["gbm"], label="killed early by the monitor")
+    for i, (sh, c) in enumerate(zip(t.share, t.caught)):
+        ax.text(sh * 100 + 0.3, i, f"{c:.0%} caught", va="center", fontsize=8)
+    ax.set_xlabel("% of test-split quiet failures")
+    ax.set_title("Failure modes, and how many the monitor kills early (5% successes lost)", fontsize=10)
+    _style(ax)
+    ax.legend(fontsize=8, frameon=False, loc="lower right")
+    fig.tight_layout()
+    fig.savefig(out / f"{tag}_taxonomy_catch.png", dpi=160)
+    plt.close(fig)
+
+
 def table_summary(tag, models=None):
     s = json.loads((RESULTS / tag / "summary.json").read_text())
     models = models or [m for m in ORDER + ["rule_streak", "rule_budget"] if m in s]
@@ -129,11 +148,14 @@ def run(args):
         fig_policy(tag, out)
         fig_policy(tag, out, "saved_turns")
         fig_importance(tag, out)
+        fig_catch(tag, out)
         md.append(f"## {tag}\n\n{table_summary(tag)}\n")
         (REPORTS / tag).mkdir(parents=True, exist_ok=True)
-        for f in ("summary.json", "metrics.csv", "importance_gbm.csv", "coef_logreg.csv", "tabular.json"):
+        for f in ("summary.json", "metrics.csv", "importance_gbm.csv", "coef_logreg.csv", "tabular.json",
+                  "catch.csv", "catch_stage.csv", "taxonomy/clusters.json", "taxonomy/silhouette.json",
+                  "gru.json", "text.json"):
             if (RESULTS / tag / f).exists():
-                shutil.copy(RESULTS / tag / f, REPORTS / tag / f)
+                shutil.copy(RESULTS / tag / f, REPORTS / tag / f.replace("/", "_"))
         print("figures for", tag)
     (REPORTS / "tables.md").write_text("\n".join(md))
     print((REPORTS / "tables.md").read_text())
