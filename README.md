@@ -54,7 +54,7 @@ outcome: FAILED. The monitor would have killed it at turn 22, saving 43 of 65 tu
 
 It is not always right. On another held-out run, a successful one, the agent had a string of rejected edits and the monitor would have killed it at turn 10, five turns before it solved the issue. That is the cost the loss budget is there to control.
 
-Canary also has a second half: a failure taxonomy. An LLM reads each quiet failure in hindsight (the full transcript, the final patch, and the tests that still fail), and the diagnoses are clustered into named failure modes. Joining that back to the monitor shows which kinds of failure are visible early and which only show up at the end.
+Canary also has a second half: a failure taxonomy. An LLM reads each quiet failure in hindsight (the full transcript, the final patch, and the tests that still fail) and sorts it into a failure type. Joining that back to the monitor shows which kinds of failure are visible early and which only show up at the end.
 
 ## Results
 
@@ -83,7 +83,31 @@ What the numbers say:
 4. It works less well on a stronger agent. On [OpenHands](https://huggingface.co/datasets/nebius/SWE-rebench-openhands-trajectories) runs (67,074 attempts, 47.9% solved, median 61 turns), the best monitor saves 11% of compute at 5% loss and the turn cap saves nothing, because successful runs there are long too. Checked one feature at a time, none of the behaviour signals separates attempts at the same issue, even at turn 30.
 5. Transfer is one-way. A monitor trained on OpenHands keeps most of its value on SWE-agent: 41.7% compute saved at 5% loss, against 51.7% for a SWE-agent-trained model on the same features. Trained on SWE-agent and run on OpenHands, it is at chance. Re-expressing each feature as a percentile within its own agent's runs did not fix this.
 
-Still running: a ModernBERT model fine-tuned on the raw transcript text, and the LLM failure taxonomy. Their results will be added here.
+## Why agents fail, and which failures show early
+
+The runs that submit a patch and still fail all report the same exit status, so I had an LLM (Qwen3-30B-A3B through vLLM) read 14,644 of them in hindsight: the transcript, the final patch, and the tests that still fail. Each got a one-sentence diagnosis and a short label. A second pass had the LLM propose categories from the most common labels, then put every run into exactly one. Clustering the diagnoses with sentence embeddings did not work: the clusters followed the repository and the wording rather than the kind of mistake.
+
+Joining the categories to the GRU monitor, at the threshold that stops 5% of successful runs, shows which failures are visible early:
+
+| Failure type | Share of quiet failures | Stopped early | Mean turns | Hedging rate | Repeated commands |
+|---|---:|---:|---:|---:|---:|
+| Misdiagnosed cause | 18.2% | **56%** | 39 | 0.39 | 0.37 |
+| Misapplied logic | 17.9% | 33% | 27 | 0.29 | 0.26 |
+| Misplaced fix | 16.4% | 43% | 31 | 0.34 | 0.28 |
+| Incomplete change | 15.0% | 22% | 20 | 0.27 | 0.19 |
+| Missing component | 11.3% | 36% | 29 | 0.31 | 0.26 |
+| Overcorrection | 8.0% | 21% | 21 | 0.26 | 0.19 |
+| Over-simplification | 5.7% | **12%** | 18 | 0.23 | 0.15 |
+| Incorrect logic | 3.9% | 21% | 22 | 0.26 | 0.22 |
+| Syntax and structure error | 3.6% | 48% | 31 | 0.39 | 0.38 |
+
+<p align="center">
+  <img src="reports/figures/swe_taxonomy_catch.png" width="640" alt="Bar chart of the nine failure types by share of quiet failures, with the part the monitor stops early highlighted. Misdiagnosed cause is stopped most often at 56%, over-simplification least at 12%.">
+</p>
+
+The monitor catches agents that flail. A misdiagnosed run is long, hedges in its reasoning, and repeats itself, and more than half of them get stopped. It misses agents that are confidently wrong. An over-simplified or incomplete fix comes from a short, clean run with few errors, which looks like a run that succeeded, and only 12% to 22% of those get stopped. Those failures need a different signal, such as checking the patch itself, not watching the process.
+
+Still running: a ModernBERT model fine-tuned on the raw transcript text. Its results will be added here.
 
 ## How it works
 
@@ -120,8 +144,7 @@ canary ensemble swe
 canary evaluate swe              # metrics, abort-policy curves, rule baselines
 canary tabular swe --eval-on oh  # cross-agent transfer
 canary taxonomy label swe        # LLM diagnoses of quiet failures (vLLM, GPU)
-canary taxonomy cluster swe
-canary taxonomy name swe
+canary taxonomy propose_assign swe  # LLM proposes failure categories, then assigns each run
 canary catch swe                 # which failure modes the monitor catches early
 canary report                    # figures and tables into reports/
 canary watch swe --failed        # replay a held-out run with the monitor's estimate

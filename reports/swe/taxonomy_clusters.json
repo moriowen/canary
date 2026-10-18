@@ -1,0 +1,197 @@
+[
+  {
+    "cluster": 1,
+    "name": "Incomplete Fix",
+    "description": "The agent applies a partial or incorrect change that does not fully resolve the issue, leaving the test to fail due to unaddressed edge cases or missing components.",
+    "size": 1882,
+    "share": 0.128551912568306,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent added a warning message but did not enforce an error exit, which the failing test expects.",
+      "The agent failed to recognize that the issue was caused by invalid syntax in the test case, not by a missing module or file.",
+      "The agent failed to recognize that the issue was caused by a race condition in the test suite, not a bug in the code, and incorrectly attempted to reproduce the issue with a synthetic test file that didn't trigger the actual problem."
+    ]
+  },
+  {
+    "cluster": 6,
+    "name": "Incomplete Fix",
+    "description": "The agent applies a partial or superficial change that does not fully resolve the issue, leaving underlying problems unaddressed.",
+    "size": 1499,
+    "share": 0.10239071038251366,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent added a redundant check that masks the original error, causing valid error cases to pass when they should fail.",
+      "The agent added a placeholder 'pass' in the error handling logic instead of implementing a warning or error, leaving the check ineffective.",
+      "The agent failed to handle exceptions in a way that preserves the original error reporting while ensuring the check command exits with a failure status when errors occur."
+    ]
+  },
+  {
+    "cluster": 11,
+    "name": "Implementation Flaws",
+    "description": "The agent consistently applies incorrect, incomplete, or misaligned changes to the parser logic without addressing the root cause, leading to persistent or new parsing errors.",
+    "size": 1487,
+    "share": 0.10157103825136612,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent failed to properly handle whitespace-only strings by adding a guard clause in the wrong function, missing the actual root cause in the parsing logic.",
+      "The agent failed to recognize that the issue involves parsing multiline strings with backslash continuation, and instead focused on irrelevant code related to tokenization and escape sequences.",
+      "The agent failed to modify the parser to return special constants for '?' and '.' values, instead only reproducing the issue without implementing any changes to the code."
+    ]
+  },
+  {
+    "cluster": 3,
+    "name": "Incomplete Fix",
+    "description": "The agent applies a partial change that addresses only part of the issue, leaving critical aspects unhandled or incorrectly implemented.",
+    "size": 1225,
+    "share": 0.08367486338797814,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent failed to recognize that the issue was about parameter name collision in class inheritance, not about missing module imports or syntax errors in third-party code.",
+      "The agent failed to properly handle optional parameters in method dispatch by incorrectly modifying the `__missing__` and `__call__` methods without addressing the core issue of type matching for default arguments.",
+      "The agent failed to identify that the issue lies in the handling of `Callable` type hints with `class_path` and `init_args`, and instead attempted to fix the problem by creating a new reproduction file without modifying the actual code that processes these arguments."
+    ]
+  },
+  {
+    "cluster": 0,
+    "name": "misplaced implementation",
+    "description": "The agent applied changes to incorrect files or locations, such as test files, READMEs, or unrelated modules, rather than the core implementation that needs modification.",
+    "size": 1037,
+    "share": 0.07083333333333333,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent failed to recognize that the issue was about import resolution across Python versions, not about the test environment or code structure.",
+      "The agent failed to modify the `infer_module_name` function to handle `__init__.py` files correctly by stripping the `__init__` suffix from the inferred module name.",
+      "The agent failed to modify the `infer_module_name` function to correctly handle `__init__.py` files by removing the `__init__` suffix, instead relying on external test setup that did not reflect the actual implementation."
+    ]
+  },
+  {
+    "cluster": 5,
+    "name": "Misdiagnosed Root Cause",
+    "description": "The agent repeatedly fails to identify the true underlying issue, instead focusing on symptoms or irrelevant aspects of the code.",
+    "size": 1028,
+    "share": 0.07021857923497268,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent failed to recognize that the real issue was a mismatch in argument names due to a version change, not unstripped quotes in config values.",
+      "The agent failed to recognize that the issue involves parsing variable names with hyphens like 'include-other-stuff', and instead spent excessive effort trying to fix the configuration file syntax, which was already correct.",
+      "The agent failed to modify the actual source code where the bug occurs, instead only creating a reproduction script that demonstrated the issue without fixing the underlying problem."
+    ]
+  },
+  {
+    "cluster": 8,
+    "name": "misdiagnosed root cause",
+    "description": "The agent repeatedly fails to identify the true underlying issue, instead applying fixes to symptoms or incorrect assumptions about the codebase's behavior.",
+    "size": 925,
+    "share": 0.06318306010928962,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent incorrectly changed the schema modification to use the field's class instead of its type, breaking validation logic that relies on the type's __modify_schema__.",
+      "The agent replaced a SkipField exception with a warning but failed to properly handle the default value encoding for Callable types, leading to a TypeError during schema generation.",
+      "The agent failed to recognize that the issue was with handling list fields of dataclasses in schema generation, instead of fixing the core logic in field_singleton_schema."
+    ]
+  },
+  {
+    "cluster": 10,
+    "name": "Incomplete Fix",
+    "description": "The agent applies a partial or incorrect solution that fails to address all edge cases or the root cause, leading to residual bugs or regression.",
+    "size": 878,
+    "share": 0.05997267759562842,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent failed to properly handle nested dictionary values containing templates, instead incorrectly flattening and duplicating keys in the output.",
+      "The agent incorrectly wrapped each item in a list as a dictionary with '__root__', but the model expects a single tuple as __root__, not a list of dictionaries.",
+      "The agent failed to modify the code to convert NoneValue instances to Python's None in get_list, only attempting to fix get."
+    ]
+  },
+  {
+    "cluster": 13,
+    "name": "Misdiagnosed Root Cause",
+    "description": "The agent consistently identifies incorrect symptoms as the root cause, leading to fixes applied to the wrong code locations or logic paths.",
+    "size": 867,
+    "share": 0.059221311475409835,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent incorrectly assumed the error was due to string formatting in the Authorization header, when it was actually caused by improper handling of the base64-encoded credentials in the request headers.",
+      "The agent incorrectly assumed the issue was a JSON serialization error with the 'origin' field, when the real problem was a missing or misconfigured API endpoint connection.",
+      "The agent misidentified the root cause as a base64 encoding issue, when the actual problem was improper string formatting in the request URL construction."
+    ]
+  },
+  {
+    "cluster": 9,
+    "name": "Misdiagnosed Root Cause",
+    "description": "The agent repeatedly fails to identify the true source of the bug, instead applying fixes to incorrect components of the code.",
+    "size": 829,
+    "share": 0.05662568306010929,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent incorrectly assumed that the issue was with the `rotation` function's `deg` parameter, when the real problem was in how the `point_to_square_loop` function used the source's azimuth and elevation angles.",
+      "The agent incorrectly modified the `point_to_square_loop` function to round coordinates and use float64, but the actual issue was in the `dipole_to_point` function's coordinate parsing.",
+      "The agent failed to recognize that the issue was in the `dipole_to_point` function's handling of coordinates, not in the `point_to_square_loop` or rotation logic."
+    ]
+  },
+  {
+    "cluster": 4,
+    "name": "Misdiagnosed Root Cause",
+    "description": "The agent repeatedly fails to identify the true underlying issue, instead focusing on incorrect or superficial symptoms, leading to ineffective or harmful fixes.",
+    "size": 706,
+    "share": 0.048224043715846994,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent failed to handle the case where the file path is passed as a string, leading to incorrect behavior when both string and Path objects are used.",
+      "The agent added a suffix to the file name but did not handle the case where the suffix is None, leading to incorrect file path construction.",
+      "The agent failed to recognize that the issue was about argument parsing order, not file existence, and incorrectly assumed the problem was resolved by creating test files."
+    ]
+  },
+  {
+    "cluster": 14,
+    "name": "overcorrection",
+    "description": "The agent excessively modified code to fix a perceived issue, introducing new bugs by removing or altering essential behavior that was already correct.",
+    "size": 688,
+    "share": 0.046994535519125684,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent replaced a critical error check with a premature return, causing valid syntax to be incorrectly processed and breaking multiple test cases.",
+      "The agent incorrectly added duplicate rules and debug print statements to the final patch, which caused the tests to fail due to unexpected output and redundant logic.",
+      "The agent incorrectly added a diagnostic error for non-ASCII whitespace characters without properly integrating it into the enforcement flow, and failed to ensure the fix aligns with the expected test behavior."
+    ]
+  },
+  {
+    "cluster": 2,
+    "name": "Incomplete Fix",
+    "description": "The agent applies a partial change that does not fully resolve the root cause, leaving underlying issues unaddressed and resulting in continued failures.",
+    "size": 681,
+    "share": 0.04651639344262295,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent failed to handle non-UTF-8 encodings correctly by assuming the encoding is always valid and using it directly without error handling.",
+      "The agent added a string-to-bytes encoding step but failed to handle the case where the input might already be bytes, leading to double-encoding and test failures.",
+      "The agent incorrectly added a hardcoded check for a specific string literal instead of properly handling Unicode escape sequences in string literals."
+    ]
+  },
+  {
+    "cluster": 12,
+    "name": "Incomplete Fix",
+    "description": "The agent applied a partial solution that addresses symptoms but fails to resolve the underlying issue due to unhandled edge cases, missing logic, or incorrect assumptions about input formats or dependencies.",
+    "size": 508,
+    "share": 0.03469945355191257,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent failed to recognize that the issue was with the parser's handling of the 'time without time zone' type in a cast expression, instead of the to_timestamp function.",
+      "The agent incorrectly assumed the parser error was due to missing type or time zone specifier handling, but the real issue was improper handling of the 'time without time zone' type in the type parsing logic.",
+      "The agent failed to recognize that `serialize_date` was already correctly implemented and only needed to be used, instead of modifying it to strip time information, which was not the root issue."
+    ]
+  },
+  {
+    "cluster": 7,
+    "name": "misplaced clause",
+    "description": "The parser incorrectly associates a clause like LIMIT with the wrong SQL statement, such as attaching it to CREATE TABLE instead of the embedded SELECT subquery.",
+    "size": 400,
+    "share": 0.0273224043715847,
+    "top_stage": "implementation",
+    "examples": [
+      "The agent failed to correctly parse the SQL due to improper handling of the LIMIT clause in a CREATE TABLE AS SELECT statement, causing it to be incorrectly associated with the CREATE TABLE instead of the SELECT.",
+      "The agent failed to correctly handle the parsing of the LIMIT clause in a CREATE TABLE AS SELECT statement, incorrectly associating it with the CREATE TABLE instead of the SELECT subquery.",
+      "The agent incorrectly assumed the parser was failing due to the LIMIT clause being treated as a separate statement, when the real issue was that the parser wasn't properly associating the LIMIT with the SELECT inside the CREATE TABLE AS statement."
+    ]
+  }
+]
