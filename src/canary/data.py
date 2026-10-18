@@ -1,14 +1,20 @@
 """Dataset access and local data paths."""
 
+import os
 from pathlib import Path
 
 from huggingface_hub import HfFileSystem
 
 REPO = "nebius/SWE-agent-trajectories"
 
-DATA = Path("data")
+DATA = Path(os.environ.get("CANARY_DATA", "data"))
 METADATA = DATA / "interim" / "metadata.parquet"
 SAMPLE = DATA / "raw" / "sample.parquet"
+RESULTS = Path(os.environ.get("CANARY_RESULTS", "results"))
+
+
+def processed(scaffold):
+    return DATA / "processed" / scaffold
 
 
 def shards():

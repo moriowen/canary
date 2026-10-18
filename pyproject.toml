@@ -17,7 +17,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "jupyter", "ipykernel", "matplotlib", "seaborn"]
+train = ["lightgbm", "torch", "transformers", "matplotlib", "pytest"]
+dev = ["pytest", "jupyter", "ipykernel", "matplotlib", "seaborn", "lightgbm"]
 
 [project.scripts]
 canary = "canary.cli:main"
