@@ -199,7 +199,9 @@ could apply consistently from a one-sentence diagnosis.
 
 Reply with JSON only:
 {"categories": [{"name": "<2-4 words>", "definition": "<one sentence>",
-                 "includes": "<typical labels or cues>", "excludes": "<what belongs elsewhere>"}]}"""
+                 "includes": "<at most 5 example labels, comma-separated, in one string>",
+                 "excludes": "<one short phrase: what belongs elsewhere>"}]}
+Keep the whole reply under 600 words."""
 
 ASSIGNER = """Classify one diagnosis of a failed AI coding-agent run into exactly one category.
 
@@ -223,7 +225,7 @@ def propose(args):
     tok = llm.get_tokenizer()
     prompt = tok.apply_chat_template([{"role": "system", "content": PROPOSER}, {"role": "user", "content": body}],
                                      tokenize=False, add_generation_prompt=True)
-    o = llm.generate([prompt], SamplingParams(temperature=0.0, max_tokens=4000))[0].outputs[0].text
+    o = llm.generate([prompt], SamplingParams(temperature=0.0, max_tokens=4000, repetition_penalty=1.1))[0].outputs[0].text
     (out / "categories_raw.txt").write_text(o)
     cats = _json(o).get("categories", [])
     if not cats:
