@@ -3,7 +3,8 @@ Figures and markdown tables from results/. Run after evaluate.
 
     canary report
 
-Writes results/figures/*.png and results/tables.md.
+Writes reports/figures/*.png, reports/tables.md, and copies each tag's small
+summaries (summary.json, metrics.csv, importance) into reports/<tag>/.
 """
 
 import json
@@ -14,7 +15,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from canary.data import RESULTS, processed
+import shutil
+
+from canary.data import REPORTS, RESULTS, processed
 
 NAMES = {
     "gbm": "LightGBM (run features)", "gru": "GRU monitor", "text": "ModernBERT (transcript)",
@@ -116,7 +119,7 @@ def add_args(p):
 
 
 def run(args):
-    out = RESULTS / "figures"
+    out = REPORTS / "figures"
     out.mkdir(parents=True, exist_ok=True)
     tags = args.tags or [p.name for p in RESULTS.iterdir() if (p / "summary.json").exists()]
     md = []
@@ -126,6 +129,10 @@ def run(args):
         fig_policy(tag, out, "saved_turns")
         fig_importance(tag, out)
         md.append(f"## {tag}\n\n{table_summary(tag)}\n")
+        (REPORTS / tag).mkdir(parents=True, exist_ok=True)
+        for f in ("summary.json", "metrics.csv", "importance_gbm.csv", "coef_logreg.csv", "tabular.json"):
+            if (RESULTS / tag / f).exists():
+                shutil.copy(RESULTS / tag / f, REPORTS / tag / f)
         print("figures for", tag)
-    (RESULTS / "tables.md").write_text("\n".join(md))
-    print((RESULTS / "tables.md").read_text())
+    (REPORTS / "tables.md").write_text("\n".join(md))
+    print((REPORTS / "tables.md").read_text())
