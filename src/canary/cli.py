@@ -13,6 +13,7 @@ COMMANDS = {
     "tabular": ("canary.models.tabular", "train logistic regression and LightGBM on prefix features"),
     "seq": ("canary.models.seq", "train the GRU monitor on per-turn vectors"),
     "text": ("canary.models.text", "fine-tune ModernBERT on transcript prefixes"),
+    "taxonomy": ("canary.taxonomy", "LLM-diagnose quiet failures, cluster and name failure modes"),
     "evaluate": ("canary.commands.evaluate", "score predictions and rule baselines, simulate abort policies"),
 }
 
