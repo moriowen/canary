@@ -25,7 +25,7 @@ def add_args(p):
 
 
 def run(args):
-    scaffold = args.data or args.tag.split("_")[0]
+    scaffold = args.data or args.tag.split("_")[0]  # e.g. swe_to_oh needs --data oh
     d = processed(scaffold)
     out = RESULTS / args.tag
     runs = pd.read_parquet(d / "runs.parquet")

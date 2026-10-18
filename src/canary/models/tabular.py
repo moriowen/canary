@@ -46,6 +46,33 @@ def load(scaffold):
     return runs, splits, X
 
 
+def align(X, cols):
+    """Replace each feature by its percentile among the same scaffold's train-split
+    runs at the same checkpoint k.
+
+    Unsupervised domain alignment: "more errors than most runs at this point" means
+    the same thing on both scaffolds even when raw counts and run lengths don't.
+    Uses only unlabeled features from the scaffold's own train split.
+    """
+    X = X.copy()
+    ref = X[X.split == "train"]
+    for k, idx in X.groupby("k").indices.items():
+        r = ref[ref.k == k]
+        if len(r) < 50:
+            r = ref[ref.k <= k].groupby("run_id").tail(1)   # sparse late checkpoints
+        for c in cols:
+            if c == "k":
+                continue
+            srt = np.sort(r[c].to_numpy(np.float64))
+            srt = srt[~np.isnan(srt)]
+            v = X[c].to_numpy(np.float64)[idx]
+            if len(srt) == 0:
+                continue
+            pct = (np.searchsorted(srt, v, "left") + np.searchsorted(srt, v, "right")) / (2 * len(srt))
+            X.iloc[idx, X.columns.get_loc(c)] = np.where(np.isnan(v), np.nan, pct)
+    return X
+
+
 def feature_cols(X, kind, portable=False):
     drop = {"run_id", "instance_id", "target", "split"}
     cols = [c for c in X.columns if c not in drop]
@@ -137,16 +164,22 @@ def add_args(p):
     p.add_argument("scaffold")
     p.add_argument("--eval-on", help="score on another scaffold's test split (transfer)")
     p.add_argument("--portable", action="store_true", help="drop scaffold-specific features")
+    p.add_argument("--align", action="store_true", help="per-scaffold percentile features (transfer)")
 
 
 def run(args):
     runs, splits, X = load(args.scaffold)
     portable = args.portable or bool(args.eval_on)
-    tag = args.scaffold + (f"_to_{args.eval_on}" if args.eval_on else "") + ("_portable" if args.portable and not args.eval_on else "")
+    tag = (args.scaffold + (f"_to_{args.eval_on}" if args.eval_on else "")
+           + ("_portable" if args.portable and not args.eval_on else "") + ("_aligned" if args.align else ""))
     out = RESULTS / tag
+    if args.align:
+        X = align(X, feature_cols(X, "all", portable))
     tr, va = X[X.split == "train"], X[X.split == "val"]
     if args.eval_on:
         _, _, E = load(args.eval_on)
+        if args.align:
+            E = align(E, feature_cols(E, "all", portable))
         ev = E[E.split.isin(["val", "test"])].reset_index(drop=True)
     else:
         ev = X[X.split.isin(["val", "test"])].reset_index(drop=True)
