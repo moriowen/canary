@@ -55,21 +55,24 @@ def align(X, cols):
     Uses only unlabeled features from the scaffold's own train split.
     """
     X = X.copy()
-    ref = X[X.split == "train"]
-    for k, idx in X.groupby("k").indices.items():
-        r = ref[ref.k == k]
-        if len(r) < 50:
-            r = ref[ref.k <= k].groupby("run_id").tail(1)   # sparse late checkpoints
-        for c in cols:
-            if c == "k":
-                continue
-            srt = np.sort(r[c].to_numpy(np.float64))
-            srt = srt[~np.isnan(srt)]
-            v = X[c].to_numpy(np.float64)[idx]
+    cols = [c for c in cols if c != "k"]
+    V = X[cols].to_numpy(np.float64)
+    out = np.full_like(V, np.nan)
+    is_tr = (X.split == "train").to_numpy()
+    kk = X.k.to_numpy()
+    for k in np.unique(kk):
+        rows = np.where(kk == k)[0]
+        ref = np.where(is_tr & (kk == k))[0]
+        if len(ref) < 50:   # sparse late checkpoints: borrow the nearest earlier ones
+            ref = np.where(is_tr & (kk <= k) & (kk >= k // 2))[0]
+        for j in range(len(cols)):
+            srt = np.sort(V[ref, j][~np.isnan(V[ref, j])])
             if len(srt) == 0:
                 continue
+            v = V[rows, j]
             pct = (np.searchsorted(srt, v, "left") + np.searchsorted(srt, v, "right")) / (2 * len(srt))
-            X.iloc[idx, X.columns.get_loc(c)] = np.where(np.isnan(v), np.nan, pct)
+            out[rows, j] = np.where(np.isnan(v), np.nan, pct)
+    X[cols] = out
     return X
 
 
