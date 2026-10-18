@@ -4,8 +4,13 @@ Failure taxonomy for quiet failures: runs that submitted a patch and still faile
 exit_status says "submitted" for all of them, so it explains nothing. Three stages:
 
     canary taxonomy label swe     # LLM (vLLM) reads each run, writes a diagnosis
-    canary taxonomy cluster swe   # embed diagnoses, k-means, pick k by silhouette
-    canary taxonomy name swe      # LLM names each cluster from its members
+    canary taxonomy propose swe   # LLM proposes categories from the diagnoses' mode labels
+    canary taxonomy assign swe    # LLM puts every diagnosis in exactly one category
+
+`cluster` and `name` (k-means over embedded diagnoses) are kept for comparison. They
+grouped runs by repository and by wording, not by failure type: silhouette ~0.05 on
+full diagnoses, and on the short mode labels "misplaced fix" and "misplaced logic"
+landed in different clusters. The propose/assign pass (as in TnT-LLM) fixes that.
 
 The LLM sees the whole run, the final patch and the tests that still fail, so it
 diagnoses with hindsight. The monitor never sees any of that; the point of the
@@ -183,8 +188,91 @@ def name(args):
         print(f"{r['share']:6.1%}  {r['name']}: {r['description']}")
 
 
+PROPOSER = """You are building a taxonomy of why AI coding agents fail.
+Each failed run was diagnosed separately; below are the most frequent short failure-mode
+labels (with counts) and a sample of full diagnoses.
+
+Propose 6 to 9 categories that together cover nearly all runs. Categories must be mutually
+exclusive, about the KIND of mistake (not the repository or library), and useful to an
+engineer deciding how to fix an agent. Merge near-synonyms. Prefer categories a reader
+could apply consistently from a one-sentence diagnosis.
+
+Reply with JSON only:
+{"categories": [{"name": "<2-4 words>", "definition": "<one sentence>",
+                 "includes": "<typical labels or cues>", "excludes": "<what belongs elsewhere>"}]}"""
+
+ASSIGNER = """Classify one diagnosis of a failed AI coding-agent run into exactly one category.
+
+Categories:
+{cats}
+
+Reply with the category number only."""
+
+
+def propose(args):
+    from vllm import LLM as VLLM, SamplingParams
+
+    out = RESULTS / args.scaffold / "taxonomy"
+    lab = pd.read_parquet(out / "labels.parquet")
+    lab = lab[lab.summary.str.len() > 0]
+    modes = lab["mode"].str.lower().str.strip().str.replace("-", " ").value_counts().head(300)
+    sample = lab.sample(60, random_state=0)
+    body = ("MOST FREQUENT LABELS:\n" + "\n".join(f"{m} ({n})" for m, n in modes.items())
+            + "\n\nSAMPLE DIAGNOSES:\n" + "\n".join(f"- [{r.mode}] {r.summary}" for r in sample.itertuples()))
+    llm = VLLM(args.model, max_model_len=16384, gpu_memory_utilization=0.9)
+    tok = llm.get_tokenizer()
+    prompt = tok.apply_chat_template([{"role": "system", "content": PROPOSER}, {"role": "user", "content": body}],
+                                     tokenize=False, add_generation_prompt=True)
+    o = llm.generate([prompt], SamplingParams(temperature=0.0, max_tokens=1500))[0].outputs[0].text
+    cats = _json(o).get("categories", [])
+    (out / "categories.json").write_text(json.dumps(cats, indent=2))
+    for i, c in enumerate(cats, 1):
+        print(f"{i}. {c['name']}: {c['definition']}")
+    return llm
+
+
+def assign(args, llm=None):
+    from vllm import LLM as VLLM, SamplingParams
+
+    out = RESULTS / args.scaffold / "taxonomy"
+    cats = json.loads((out / "categories.json").read_text())
+    lab = pd.read_parquet(out / "labels.parquet")
+    lab = lab[lab.summary.str.len() > 0].reset_index(drop=True)
+    listing = "\n".join(f"{i}. {c['name']}: {c['definition']} (includes: {c.get('includes', '')}; "
+                        f"excludes: {c.get('excludes', '')})" for i, c in enumerate(cats, 1))
+    llm = llm or VLLM(args.model, max_model_len=4096, gpu_memory_utilization=0.9, enable_prefix_caching=True)
+    tok = llm.get_tokenizer()
+    sys_prompt = ASSIGNER.format(cats=listing)
+    prompts = [tok.apply_chat_template([{"role": "system", "content": sys_prompt},
+                                        {"role": "user", "content": f"[{r.mode}] {r.summary}"}],
+                                       tokenize=False, add_generation_prompt=True) for r in lab.itertuples()]
+    outs = llm.generate(prompts, SamplingParams(temperature=0.0, max_tokens=4))
+    idx = []
+    for o in outs:
+        m = re.search(r"\d+", o.outputs[0].text)
+        k = int(m.group(0)) if m else 0
+        idx.append(k if 1 <= k <= len(cats) else 0)
+    lab["cluster"] = [i - 1 for i in idx]
+    lab["name"] = [cats[i - 1]["name"] if i else "unassigned" for i in idx]
+    lab.drop(columns=["raw"]).to_parquet(out / "assigned.parquet", index=False)
+    info = []
+    for i, c in enumerate(cats):
+        g = lab[lab.cluster == i]
+        info.append({"cluster": i, "name": c["name"], "description": c["definition"], "size": len(g),
+                     "share": len(g) / len(lab), "examples": g.sample(min(3, len(g)), random_state=0).summary.tolist()})
+    info.sort(key=lambda r: -r["size"])
+    (out / "categories_assigned.json").write_text(json.dumps(info, indent=2))
+    print(f"unassigned: {(lab.cluster < 0).mean():.2%}")
+    for r in info:
+        print(f"{r['share']:6.1%}  {r['name']}")
+
+
+def propose_assign(args):
+    assign(args, propose(args))
+
+
 def add_args(p):
-    p.add_argument("stage", choices=["label", "cluster", "name"])
+    p.add_argument("stage", choices=["label", "cluster", "name", "propose", "assign", "propose_assign"])
     p.add_argument("scaffold")
     p.add_argument("--model", default=LLM)
     p.add_argument("--limit", type=int, default=0)
@@ -192,4 +280,5 @@ def add_args(p):
 
 
 def run(args):
-    {"label": label, "cluster": cluster, "name": name}[args.stage](args)
+    {"label": label, "cluster": cluster, "name": name, "propose": propose, "assign": assign,
+     "propose_assign": propose_assign}[args.stage](args)

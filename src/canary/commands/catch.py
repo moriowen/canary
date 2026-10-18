@@ -32,8 +32,14 @@ def run(args):
     tx = out / "taxonomy"
     s = json.loads((out / "summary.json").read_text())
     tau = s[args.model][f"kill_threshold@{int(args.budget * 100)}%"]
-    clusters = pd.read_parquet(tx / "clusters.parquet").query("split == 'test'")
-    info = pd.DataFrame(json.loads((tx / "clusters.json").read_text()))[["cluster", "name"]]
+    # Prefer the propose/assign taxonomy; fall back to the k-means clusters.
+    if (tx / "assigned.parquet").exists():
+        clusters = pd.read_parquet(tx / "assigned.parquet").query("split == 'test' and cluster >= 0")
+        info = clusters[["cluster", "name"]].drop_duplicates()
+        clusters = clusters.drop(columns="name")
+    else:
+        clusters = pd.read_parquet(tx / "clusters.parquet").query("split == 'test'")
+        info = pd.DataFrame(json.loads((tx / "clusters.json").read_text()))[["cluster", "name"]]
     preds = pd.read_parquet(out / "preds" / f"{args.model}.parquet")
     preds = preds[preds.run_id.isin(clusters.run_id) & preds.k.isin(POLICY_SCHEDULE)]
     kills = threshold_kills(preds, tau)
