@@ -107,6 +107,27 @@ Joining the categories to the GRU monitor, at the threshold that stops 5% of suc
 
 The monitor catches agents that flail. A misdiagnosed run is long, hedges in its reasoning, and repeats itself, and more than half of them get stopped. It misses agents that are confidently wrong. An over-simplified or incomplete fix comes from a short, clean run with few errors, which looks like a run that succeeded, and only 12% to 22% of those get stopped. Those failures need a different signal, such as checking the patch itself, not watching the process.
 
+### How failing runs behave, without labels
+
+The LLM categories say why a run failed, using hindsight. A separate, unsupervised view asks how failing runs behave. Each of the 56,775 quiet failures is described only by its end-of-run behaviour: the share of each action type, error rate, repeated commands, hedging, edit sizes, test runs, and whether it reran its reproduction after editing. These features carry no repository or issue text, so clusters can't form around a codebase. After standardising and PCA (16 dimensions, 90% of variance), a Gaussian mixture picks four archetypes at the BIC knee.
+
+| Archetype | Share | Turns | Error rate | Repeated cmds | Test runs | Stopped early |
+|---|---:|---:|---:|---:|---:|---:|
+| Tidy finishers: reproduce, edit, clean up, submit | 42% | 18 | 0.21 | 0.14 | 1.1 | 14% |
+| Loopers: repeat commands, "still" and "again", rejected edits | 28% | 44 | 0.40 | 0.53 | 2.3 | **74%** |
+| Quick patchers: about 10 turns, never test, never rerun | 19% | 10 | 0.21 | 0.06 | 0.0 | **10%** |
+| Environment fighters: installs, malformed commands, long error streaks | 11% | 52 | 0.35 | 0.40 | 1.4 | 63% |
+
+<p align="center">
+  <img src="reports/figures/swe_archetypes.png" width="760" alt="Left: bar chart of the four behavioural archetypes by share of quiet failures, with the share stopped early by the monitor highlighted: tidy finishers 14%, loopers 74%, quick patchers 10%, environment fighters 63%. Right: heatmap of mean turns, error rate, repeated commands, hedging and test runs per archetype.">
+</p>
+
+Three things stand out:
+
+1. Behaviour explains the monitor's blind spot better than the diagnosis does. Stop rates run from 10% to 74% across archetypes, against 12% to 56% across the LLM categories. Tidy finishers and quick patchers are 61% of quiet failures, and the monitor stops few of them, because their runs look like successful ones.
+2. How a run fails and why it fails are close to independent. Agreement between the archetypes and the LLM categories is NMI 0.03. The two exceptions are that misdiagnosed causes concentrate among loopers and environment fighters, and incomplete changes among quick patchers.
+3. The archetypes are regions of a continuum, not separate species. They are only moderately stable across random seeds (ARI 0.32), and HDBSCAN finds two dense clusters with 83% of runs left as noise. Where HDBSCAN does find structure it matches the mixture (ARI 0.97).
+
 Still running: a ModernBERT model fine-tuned on the raw transcript text. Its results will be added here.
 
 ## How it works
@@ -146,6 +167,7 @@ canary tabular swe --eval-on oh  # cross-agent transfer
 canary taxonomy label swe        # LLM diagnoses of quiet failures (vLLM, GPU)
 canary taxonomy propose_assign swe  # LLM proposes failure categories, then assigns each run
 canary catch swe                 # which failure modes the monitor catches early
+canary archetypes swe            # unsupervised behavioural archetypes (Gaussian mixture)
 canary report                    # figures and tables into reports/
 canary watch swe --failed        # replay a held-out run with the monitor's estimate
 ```
@@ -161,7 +183,8 @@ src/canary/
   splits.py         train/val/test split by issue
   metrics.py        pooled and same-issue AUROC
   policy.py         abort-policy simulator: compute saved against successes lost
-  taxonomy.py       LLM diagnosis, clustering and naming of quiet failures
+  taxonomy.py       LLM diagnosis and categories of quiet failures
+  archetypes.py     unsupervised behavioural archetypes of quiet failures
   models/           tabular, GRU, ModernBERT, ensemble
   commands/         build, evaluate, catch, report, watch, peek
 pace/               Slurm jobs for Georgia Tech's PACE ICE cluster

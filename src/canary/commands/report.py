@@ -118,6 +118,44 @@ def fig_catch(tag, out):
     plt.close(fig)
 
 
+def fig_archetypes(tag, out):
+    d = RESULTS / tag / "archetypes"
+    if not (d / "profiles.csv").exists():
+        return
+    prof = pd.read_csv(d / "profiles.csv", index_col=0)
+    names = json.loads((d / "names.json").read_text()) if (d / "names.json").exists() else {}
+    prof.index = [names.get(str(i), f"archetype {i}") for i in prof.index]
+    prof = prof.sort_values("share")
+    fig, axes = plt.subplots(1, 2, figsize=(11, 3.6), gridspec_kw={"width_ratios": [1.1, 1]})
+    ax = axes[0]
+    ax.barh(prof.index, prof.share * 100, color="#cbd5e1", label="share of quiet failures")
+    ax.barh(prof.index, prof.share * prof.caught * 100, color=COLORS["gru"], label="stopped early by the monitor")
+    for i, (sh, c) in enumerate(zip(prof.share, prof.caught)):
+        ax.text(sh * 100 + 0.6, i, f"{c:.0%} stopped", va="center", fontsize=8)
+    ax.set_xlabel("% of quiet failures")
+    ax.set_title("Behavioural archetypes (Gaussian mixture, no labels)", fontsize=10)
+    ax.legend(fontsize=8, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.22), ncol=2)
+    ax.set_xlim(0, prof.share.max() * 100 * 1.3)
+    _style(ax)
+    ax = axes[1]
+    cols = {"k": "turns", "frac_err": "error\nrate", "frac_repeat_cmd": "repeated\ncmds",
+            "frac_lex_hedge": "hedging", "n_test": "test\nruns"}
+    m = prof[list(cols)].rename(columns=cols).iloc[::-1]   # top-to-bottom matches the bars
+    z = (m - m.mean()) / m.std()
+    ax.imshow(z.to_numpy(), cmap="RdBu_r", vmin=-1.6, vmax=1.6, aspect="auto")
+    ax.set_xticks(range(len(cols)), list(cols.values()), fontsize=8)
+    ax.set_yticks(range(len(m)), m.index, fontsize=8)
+    for i in range(len(m)):
+        for j, c in enumerate(m.columns):
+            v = m.iloc[i, j]
+            ax.text(j, i, f"{v:.0f}" if c == "turns" else f"{v:.2f}" if v < 1 else f"{v:.1f}",
+                    ha="center", va="center", fontsize=8)
+    ax.set_title("Mean behaviour per archetype", fontsize=10)
+    fig.tight_layout()
+    fig.savefig(out / f"{tag}_archetypes.png", dpi=160)
+    plt.close(fig)
+
+
 def table_summary(tag, models=None):
     s = json.loads((RESULTS / tag / "summary.json").read_text())
     models = models or [m for m in ORDER + ["rule_streak", "rule_budget"] if m in s]
@@ -149,11 +187,13 @@ def run(args):
         fig_policy(tag, out, "saved_turns")
         fig_importance(tag, out)
         fig_catch(tag, out)
+        fig_archetypes(tag, out)
         md.append(f"## {tag}\n\n{table_summary(tag)}\n")
         (REPORTS / tag).mkdir(parents=True, exist_ok=True)
         for f in ("summary.json", "metrics.csv", "importance_gbm.csv", "coef_logreg.csv", "tabular.json",
                   "catch.csv", "catch_stage.csv", "taxonomy/clusters.json", "taxonomy/silhouette.json",
-                  "gru.json", "text.json"):
+                  "gru.json", "text.json", "archetypes/profiles.csv", "archetypes/summary.json",
+                  "archetypes/crosstab_llm.csv", "archetypes/names.json", "archetypes/model_selection.csv"):
             if (RESULTS / tag / f).exists():
                 shutil.copy(RESULTS / tag / f, REPORTS / tag / f.replace("/", "_"))
         print("figures for", tag)
