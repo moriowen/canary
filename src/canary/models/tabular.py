@@ -76,16 +76,36 @@ def fit_ranker(tr, va, cols, rounds=3000):
 
     Trained only on mixed-outcome tasks, grouped by issue and checkpoint, so the
     only thing it can learn is which attempt at the same issue is going better.
+    Early-stops on within-task AUROC (pair-weighted), the number it exists for.
     """
-    def ds(X):
+    def prep(X):
         X = X[X.groupby("instance_id").target.transform("nunique") == 2]
         X = X.sort_values(["instance_id", "k"])
         grp = X.groupby(["instance_id", "k"], sort=False).size().to_numpy()
-        return lgb.Dataset(X[cols], X.target.astype(int), group=grp)
-    params = {**GBM_PARAMS, "objective": "rank_xendcg", "metric": "map", "eval_at": [3],
-              "min_data_in_leaf": 300}
-    return lgb.train(params, ds(tr), rounds, valid_sets=[ds(va)],
-                     callbacks=[lgb.early_stopping(150, verbose=False), lgb.log_evaluation(500)])
+        return X, grp
+
+    trX, trg = prep(tr)
+    vaX, vag = prep(va)
+    bounds = np.concatenate([[0], np.cumsum(vag)])
+    vy = vaX.target.to_numpy(bool)
+
+    def within_auc(preds, data):
+        num = den = 0.0
+        for a, b in zip(bounds[:-1], bounds[1:]):
+            y, p = vy[a:b], preds[a:b]
+            npos = y.sum()
+            nneg = len(y) - npos
+            if npos and nneg:
+                r = pd.Series(p).rank().to_numpy()
+                num += r[y].sum() - npos * (npos + 1) / 2
+                den += npos * nneg
+        return "within_auc", num / den, True
+
+    params = {**GBM_PARAMS, "objective": "rank_xendcg", "metric": "None", "min_data_in_leaf": 300}
+    dtr = lgb.Dataset(trX[cols], trX.target.astype(int), group=trg)
+    dva = lgb.Dataset(vaX[cols], vaX.target.astype(int), group=vag)
+    return lgb.train(params, dtr, rounds, valid_sets=[dva], feval=within_auc,
+                     callbacks=[lgb.early_stopping(300, verbose=False), lgb.log_evaluation(100)])
 
 
 def fit_lr(tr, cols):
@@ -148,7 +168,7 @@ def run(args):
     cols = feature_cols(X, "run", portable)
     rk = fit_ranker(tr, va, cols)
     _save(out, "gbm_rank", ev, 1 / (1 + np.exp(-rk.predict(ev[cols], num_iteration=rk.best_iteration))))
-    info["gbm_rank"] = {"iters": rk.best_iteration}
+    info["gbm_rank"] = {"iters": rk.best_iteration, "val_within_auc": rk.best_score["valid_0"]["within_auc"]}
     print("gbm_rank", info["gbm_rank"], flush=True)
 
     lr = fit_lr(tr.sample(min(len(tr), 400_000), random_state=0), cols)
