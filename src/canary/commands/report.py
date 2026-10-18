@@ -41,7 +41,7 @@ def _style(ax):
 def fig_auroc(tag, out):
     m = pd.read_csv(RESULTS / tag / "metrics.csv")
     m = m[m.k <= 30]
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4), sharey=True)
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.6), sharey=True)
     for ax, col, title in [(axes[0], "auroc", "Pooled AUROC (all test runs)"),
                            (axes[1], "within_auc", "Within-task AUROC (same issue, mixed outcomes)")]:
         for name in ORDER:
@@ -54,8 +54,9 @@ def fig_auroc(tag, out):
         ax.set_xlabel("turns observed (k)")
         _style(ax)
     axes[0].set_ylabel("AUROC, P(success)")
-    axes[1].legend(fontsize=8, frameon=False, loc="lower right")
-    fig.tight_layout()
+    h, l = axes[0].get_legend_handles_labels()
+    fig.legend(h, l, fontsize=8, frameon=False, loc="lower center", ncol=4)
+    fig.tight_layout(rect=(0, 0.1, 1, 1))
     fig.savefig(out / f"{tag}_auroc.png", dpi=160)
     plt.close(fig)
 
