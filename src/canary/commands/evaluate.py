@@ -48,6 +48,7 @@ def run(args):
             **{f"auroc@{k}": _get(m, k, "auroc") for k in HEADLINE_K},
             **{f"within@{k}": _get(m, k, "within_auc") for k in HEADLINE_K},
             **at_budget(c), **at_budget(c, metric="saved_turns"),
+            **_thresholds(c),
         }
         print(f"{name:14s} " + "  ".join(f"{k}={v:.3f}" for k, v in summary[name].items()
                                           if v == v and ("@5" in k or "@1%" in k or "auroc@5" in k)))
@@ -67,6 +68,15 @@ def run(args):
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2))
     print(f"wrote {out}/metrics.csv, policy.csv, summary.json")
+
+
+def _thresholds(c):
+    """Kill threshold on P(success) that saves the most context within each loss budget."""
+    out = {}
+    for b in (0.02, 0.05, 0.10):
+        ok = c[c.lost <= b]
+        out[f"kill_threshold@{int(b * 100)}%"] = float(ok.loc[ok.saved_ctx.idxmax(), "param"]) if len(ok) else 0.0
+    return out
 
 
 def _get(m, k, col):
