@@ -39,7 +39,7 @@ def score(preds, runs, splits, split="test"):
     """Per-checkpoint metrics on one split."""
     meta = runs[["run_id", "instance_id", "target"]].merge(
         splits[["instance_id", "split", "task_type"]], on="instance_id")
-    df = preds.merge(meta, on="run_id")
+    df = preds.drop(columns=["split"], errors="ignore").merge(meta, on="run_id")
     df = df[df.split == split]
     rows = []
     for k, g in df.groupby("k"):
