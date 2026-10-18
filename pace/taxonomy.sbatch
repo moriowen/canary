@@ -12,7 +12,9 @@
 source pace/env.sh
 VLLM_VENV="${VLLM_VENV:-$HOME/scratch/kvreuse-vllm-venv312}"
 S="${SCAFFOLD:-swe}"
-vllm_py() { PYTHONPATH="$HOME/scratch/canary-vllm-extras:$PROJECT_DIR/src" "$VLLM_VENV/bin/python" -m canary.cli "$@"; }
+# PATH: vLLM JIT-compiles kernels with the venv's ninja.
+vllm_py() { PATH="$VLLM_VENV/bin:$PATH" PYTHONPATH="$HOME/scratch/canary-vllm-extras:$PROJECT_DIR/src" \
+    "$VLLM_VENV/bin/python" -m canary.cli "$@"; }
 nvidia-smi --query-gpu=name,memory.total --format=csv
 [ -f "$CANARY_RESULTS/$S/taxonomy/labels.parquet" ] || vllm_py taxonomy label "$S" ${LIMIT:+--limit $LIMIT}
 canary taxonomy cluster "$S" ${K:+--k $K}
