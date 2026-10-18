@@ -35,8 +35,9 @@ def within_task_auc(df):
     return num / den if den else np.nan, den
 
 
-def score(preds, runs, splits, split="test"):
-    """Per-checkpoint metrics on one split."""
+def score(preds, runs, splits, split="test", within=True):
+    """Per-checkpoint metrics on one split. within=False for predictors built from
+    sibling outcomes, where the within-task number is an artifact."""
     meta = runs[["run_id", "instance_id", "target"]].merge(
         splits[["instance_id", "split", "task_type"]], on="instance_id")
     df = preds.drop(columns=["split"], errors="ignore").merge(meta, on="run_id")
@@ -46,7 +47,7 @@ def score(preds, runs, splits, split="test"):
         y = g.target.to_numpy()
         if y.all() or not y.any():
             continue
-        wt, pairs = within_task_auc(g[g.task_type == "mixed"])
+        wt, pairs = within_task_auc(g[g.task_type == "mixed"]) if within else (np.nan, 0)
         rows.append({
             "k": k, "n": len(g), "solve_rate": y.mean(),
             "auroc": roc_auc_score(y, g.p), "auprc": average_precision_score(y, g.p),

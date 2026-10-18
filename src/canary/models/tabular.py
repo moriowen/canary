@@ -26,8 +26,10 @@ MODEL_B = {"8b": 8, "70b": 70, "405b": 405}
 # tool, OpenHands no glued commands) or that encode the backbone; dropped for transfer.
 NON_PORTABLE = ["model_b", "n_malformed", "n_err_exit", "n_think", "frac_think"]
 
-GBM_PARAMS = dict(objective="binary", learning_rate=0.03, num_leaves=63, min_data_in_leaf=200,
-                  feature_fraction=0.7, bagging_fraction=0.8, bagging_freq=1, lambda_l2=1.0,
+# Large leaves + task-balanced weights: ~22 attempts share each issue, so small leaves
+# memorise per-task solve rates instead of learning how runs behave.
+GBM_PARAMS = dict(objective="binary", learning_rate=0.03, num_leaves=31, min_data_in_leaf=1000,
+                  feature_fraction=0.7, bagging_fraction=0.8, bagging_freq=1, lambda_l2=10.0,
                   metric="auc", verbose=-1, seed=7641)
 
 
@@ -49,13 +51,21 @@ def feature_cols(X, kind, portable=False):
     cols = [c for c in X.columns if c not in drop]
     if kind == "issue":
         cols = [c for c in cols if c.startswith("issue_") or c == "model_b"]
+    elif kind == "run":
+        # Issue statistics are identical across a task's attempts: a task fingerprint.
+        cols = [c for c in cols if not c.startswith("issue_")]
     if portable:
         cols = [c for c in cols if c not in NON_PORTABLE]
     return cols
 
 
+def task_weights(X):
+    """Each task weighs the same, however many attempts or checkpoints it has."""
+    return 1.0 / X.groupby("instance_id").run_id.transform("size").to_numpy()
+
+
 def fit_gbm(tr, va, cols, rounds=4000):
-    dtr = lgb.Dataset(tr[cols], tr.target.astype(int))
+    dtr = lgb.Dataset(tr[cols], tr.target.astype(int), weight=task_weights(tr) * len(tr) / tr.instance_id.nunique())
     dva = lgb.Dataset(va[cols], va.target.astype(int))
     return lgb.train(GBM_PARAMS, dtr, rounds, valid_sets=[dva],
                      callbacks=[lgb.early_stopping(150, verbose=False), lgb.log_evaluation(500)])
@@ -106,19 +116,19 @@ def run(args):
     print(f"train rows {len(tr):,}  val rows {len(va):,}  eval rows {len(ev):,}")
 
     info = {}
-    for name, kind in [("gbm_issue", "issue"), ("gbm", "all")]:
+    for name, kind in [("gbm_issue", "issue"), ("gbm", "run"), ("gbm_all", "all")]:
         cols = feature_cols(X, kind, portable)
         m = fit_gbm(tr, va, cols)
         _save(out, name, ev, m.predict(ev[cols], num_iteration=m.best_iteration))
         info[name] = {"iters": m.best_iteration, "val_auc": m.best_score["valid_0"]["auc"],
                       "n_features": len(cols)}
-        if kind == "all":
+        if name == "gbm":
             imp = pd.DataFrame({"feature": cols, "gain": m.feature_importance("gain")})
             imp.sort_values("gain", ascending=False).to_csv(out / "importance_gbm.csv", index=False)
             m.save_model(str(out / "gbm.txt"))
         print(name, info[name], flush=True)
 
-    cols = feature_cols(X, "all", portable)
+    cols = feature_cols(X, "run", portable)
     lr = fit_lr(tr.sample(min(len(tr), 400_000), random_state=0), cols)
     _save(out, "logreg", ev, lr.predict_proba(ev[cols])[:, 1])
     coef = lr[-1].coef_[0][: len(cols)]

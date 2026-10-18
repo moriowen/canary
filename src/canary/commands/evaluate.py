@@ -39,7 +39,7 @@ def run(args):
     for f in sorted((out / "preds").glob("*.parquet")):
         name = f.stem
         preds = pd.read_parquet(f)
-        m = score(preds, runs, splits).assign(model=name)
+        m = score(preds, runs, splits, within=not name.startswith("oracle")).assign(model=name)
         metrics.append(m)
         tp = preds[preds.run_id.isin(test_ids) & preds.k.isin(POLICY_SCHEDULE)]
         c = sweep_model(sim, tp).assign(model=name)
