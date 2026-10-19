@@ -64,10 +64,13 @@ Compute saved is measured in context tokens, the cost of re-reading the transcri
 
 | SWE-agent monitor | AUROC at turn 5 | Same-issue AUROC at turn 20 | Compute saved, 2% of successes lost | 5% lost | 10% lost |
 |---|---:|---:|---:|---:|---:|
-| GRU over per-turn signals | 0.686 | 0.697 | **46.5%** | **60.3%** | **66.3%** |
-| LightGBM on prefix features | 0.699 | 0.648 | 40.9% | 51.4% | 64.2% |
+| GRU over per-turn signals | 0.686 | 0.697 | **46.5%** | **60.3%** | 66.3% |
+| Ensemble: LightGBM + GRU | **0.699** | 0.687 | 43.9% | 56.8% | **67.5%** |
+| Ensemble: LightGBM + GRU + ModernBERT | 0.693 | 0.688 | 45.0% | 55.0% | 65.2% |
+| LightGBM on prefix features | **0.699** | 0.648 | 40.9% | 51.4% | 64.2% |
 | LightGBM within-issue ranker | 0.601 | **0.716** | 15.1% | 33.7% | 44.6% |
 | Logistic regression | 0.667 | 0.608 | 34.8% | 50.6% | 63.0% |
+| ModernBERT on transcript text | 0.602 | 0.602 | 7.3% | 16.4% | 26.4% |
 | Rule: hard turn cap | | | 24.6% | 39.6% | 64.0% |
 | Rule: kill after N errors in a row | | | 19.6% | 25.8% | 36.1% |
 
@@ -79,9 +82,10 @@ What the numbers say:
 
 1. The monitor beats both rules where it matters. If you can afford to lose only 2% of successful runs, the GRU saves nearly twice the compute of the best turn cap (46.5% against 24.6%), and about half again as much at 5%. Once you accept losing 10%, a plain cap catches up, because on this agent long runs almost always fail.
 2. Most early signal is about the issue, not the run. Over all test runs, the monitor reaches AUROC 0.70 by turn 5. Comparing only attempts at the same issue, which holds difficulty fixed, it is 0.54. The run-level signal grows as the run goes on and reaches about 0.70 by turn 20. Reporting both numbers is the point: the gap between them is how much of "failure prediction" is really "this issue is hard".
-3. The agent's own words are the strongest single signal. The top LightGBM feature is how often the agent hedges in its reasoning ("seems", "might", "perhaps"). Next come how soon it first edits a source file, how long its reasoning runs, and how large its edits are.
-4. It works less well on a stronger agent. On [OpenHands](https://huggingface.co/datasets/nebius/SWE-rebench-openhands-trajectories) runs (67,074 attempts, 47.9% solved, median 61 turns), the best monitor saves 11% of compute at 5% loss and the turn cap saves nothing, because successful runs there are long too. Checked one feature at a time, none of the behaviour signals separates attempts at the same issue, even at turn 30.
-5. Transfer is one-way. A monitor trained on OpenHands keeps most of its value on SWE-agent: 41.7% compute saved at 5% loss, against 51.7% for a SWE-agent-trained model on the same features. Trained on SWE-agent and run on OpenHands, it is at chance. Re-expressing each feature as a percentile within its own agent's runs did not fix this.
+3. Reading the raw transcript did worse than counting what happened. ModernBERT, fine-tuned on the most recent turns that fit in 2,048 tokens, reaches AUROC 0.60 at turn 5 and saves 16% of compute at 5% loss, and adding it to an ensemble lowers the savings. The structured per-turn signals carry more than the text a 2K-token window can hold.
+4. The agent's own words are the strongest single signal. The top LightGBM feature is how often the agent hedges in its reasoning ("seems", "might", "perhaps"). Next come how soon it first edits a source file, how long its reasoning runs, and how large its edits are.
+5. It works less well on a stronger agent. On [OpenHands](https://huggingface.co/datasets/nebius/SWE-rebench-openhands-trajectories) runs (67,074 attempts, 47.9% solved, median 61 turns), the best monitor saves 11% of compute at 5% loss and the turn cap saves nothing, because successful runs there are long too. Checked one feature at a time, none of the behaviour signals separates attempts at the same issue, even at turn 30.
+6. Transfer is one-way. A monitor trained on OpenHands keeps most of its value on SWE-agent: 41.7% compute saved at 5% loss, against 51.7% for a SWE-agent-trained model on the same features. Trained on SWE-agent and run on OpenHands, it is at chance. Re-expressing each feature as a percentile within its own agent's runs did not fix this.
 
 ## Why agents fail, and which failures show early
 
@@ -127,8 +131,6 @@ Three things stand out:
 1. Behaviour explains the monitor's blind spot better than the diagnosis does. Stop rates run from 10% to 74% across archetypes, against 12% to 56% across the LLM categories. Tidy finishers and quick patchers are 61% of quiet failures, and the monitor stops few of them, because their runs look like successful ones.
 2. How a run fails and why it fails are close to independent. Agreement between the archetypes and the LLM categories is NMI 0.03. The two exceptions are that misdiagnosed causes concentrate among loopers and environment fighters, and incomplete changes among quick patchers.
 3. The archetypes are regions of a continuum, not separate species. They are only moderately stable across random seeds (ARI 0.32), and HDBSCAN finds two dense clusters with 83% of runs left as noise. Where HDBSCAN does find structure it matches the mixture (ARI 0.97).
-
-Still running: a ModernBERT model fine-tuned on the raw transcript text. Its results will be added here.
 
 ## How it works
 

@@ -23,7 +23,7 @@ NAMES = {
     "gbm": "LightGBM (run features)", "gru": "GRU monitor", "text": "ModernBERT (transcript)",
     "logreg": "Logistic regression", "gbm_issue": "Issue text only", "oracle_task": "Oracle task difficulty",
     "rule_streak": "Rule: N consecutive errors", "rule_budget": "Rule: hard turn cap",
-    "ensemble": "Ensemble (GBM + GRU + text)", "gbm_rank": "LightGBM within-task ranker",
+    "ensemble": "Ensemble (all monitors trained)", "gbm_rank": "LightGBM within-task ranker",
     "gbm_all": "LightGBM + issue features", "ensemble_gg": "Ensemble (GBM + GRU)",
 }
 COLORS = {

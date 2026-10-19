@@ -1,0 +1,21 @@
+{
+  "gbm_issue": {
+    "iters": 4,
+    "val_auc": 0.6023642818620576,
+    "n_features": 7
+  },
+  "gbm": {
+    "iters": 1987,
+    "val_auc": 0.5881282644911547,
+    "n_features": 72
+  },
+  "gbm_all": {
+    "iters": 174,
+    "val_auc": 0.613024217664287,
+    "n_features": 79
+  },
+  "gbm_rank": {
+    "iters": 79,
+    "val_within_auc": 0.5259150065968433
+  }
+}
