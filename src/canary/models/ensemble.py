@@ -16,6 +16,7 @@ from canary.data import RESULTS
 def add_args(p):
     p.add_argument("tag")
     p.add_argument("--members", nargs="*", default=["gbm", "gru", "text"])
+    p.add_argument("--name", default="ensemble", help="output prediction file name")
 
 
 def run(args):
@@ -30,5 +31,5 @@ def run(args):
             print("member", m, len(x))
     z = pd.concat(parts).groupby(["run_id", "k", "split"], as_index=False).z.mean()
     z["p"] = 1 / (1 + np.exp(-z.z))
-    z.drop(columns="z").to_parquet(d / "ensemble.parquet", index=False)
-    print(f"wrote {d / 'ensemble.parquet'}: {len(z):,} rows")
+    z.drop(columns="z").to_parquet(d / f"{args.name}.parquet", index=False)
+    print(f"wrote {d / f'{args.name}.parquet'}: {len(z):,} rows")

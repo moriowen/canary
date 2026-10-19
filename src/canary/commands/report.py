@@ -24,13 +24,13 @@ NAMES = {
     "logreg": "Logistic regression", "gbm_issue": "Issue text only", "oracle_task": "Oracle task difficulty",
     "rule_streak": "Rule: N consecutive errors", "rule_budget": "Rule: hard turn cap",
     "ensemble": "Ensemble (GBM + GRU + text)", "gbm_rank": "LightGBM within-task ranker",
-    "gbm_all": "LightGBM + issue features",
+    "gbm_all": "LightGBM + issue features", "ensemble_gg": "Ensemble (GBM + GRU)",
 }
 COLORS = {
     "gbm": "#2563eb", "gru": "#16a34a", "text": "#9333ea", "logreg": "#64748b", "ensemble": "#dc2626",
-    "gbm_issue": "#f59e0b", "gbm_rank": "#db2777", "gbm_all": "#93c5fd", "oracle_task": "#a8a29e", "rule_streak": "#0891b2", "rule_budget": "#111827",
+    "gbm_issue": "#f59e0b", "gbm_rank": "#db2777", "gbm_all": "#93c5fd", "ensemble_gg": "#f97316", "oracle_task": "#a8a29e", "rule_streak": "#0891b2", "rule_budget": "#111827",
 }
-ORDER = ["ensemble", "gbm", "gru", "text", "gbm_rank", "gbm_all", "logreg", "gbm_issue", "oracle_task"]
+ORDER = ["ensemble_gg", "ensemble", "gbm", "gru", "text", "gbm_rank", "gbm_all", "logreg", "gbm_issue", "oracle_task"]
 
 
 def _style(ax):
